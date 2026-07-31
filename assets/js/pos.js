@@ -19,6 +19,7 @@ const app = remote.app;
 let cart = [];
 let index = 0;
 let allUsers = [];
+let allPatients = [];
 let allProducts = [];
 let allCategories = [];
 let allTransactions = [];
@@ -53,6 +54,8 @@ let customerOrderList = [];
 let ownUserEdit = null;
 let totalPrice = 0;
 let orderTotal = 0;
+let consultationCharge = 0;
+let consultationPatient = null;
 let auth_error = "Incorrect username or password";
 let auth_empty = "Please enter a username and password";
 let holdOrderlocation = $("#renderHoldOrders");
@@ -68,7 +71,9 @@ let end_date = moment(end).toDate();
 let by_till = 0;
 let by_user = 0;
 let by_status = 1;
-const default_item_img = path.join("assets","images","default.jpg");
+let reportStart = moment().subtract(29, "days").startOf("day");
+let reportEnd = moment().endOf("day");
+const default_item_img = path.join("assets", "images", "default.jpg");
 const permissions = [
   "perm_products",
   "perm_categories",
@@ -81,7 +86,7 @@ notiflix.Notify.init({
   cssAnimationDuration: 600,
   messageMaxLength: 150,
   clickToClose: true,
-  closeButton: true
+  closeButton: true,
 });
 const {
   DATE_FORMAT,
@@ -140,6 +145,39 @@ $(function () {
 
   cb(start, end);
 
+  function reportCb(start, end) {
+    $("#reportSalesRange span").html(
+      start.format("MMMM D, YYYY") + "  -  " + end.format("MMMM D, YYYY"),
+    );
+  }
+
+  $("#reportSalesRange").daterangepicker(
+    {
+      startDate: reportStart,
+      endDate: reportEnd,
+      autoApply: true,
+      ranges: {
+        Today: [moment().startOf("day"), moment()],
+        "Last 7 Days": [
+          moment().subtract(6, "days").startOf("day"),
+          moment().endOf("day"),
+        ],
+        "Last 30 Days": [
+          moment().subtract(29, "days").startOf("day"),
+          moment().endOf("day"),
+        ],
+        "This Month": [moment().startOf("month"), moment()],
+        "Last Month": [
+          moment().subtract(1, "month").startOf("month"),
+          moment().subtract(1, "month").endOf("month"),
+        ],
+      },
+    },
+    reportCb,
+  );
+
+  reportCb(reportStart, reportEnd);
+
   $("#expirationDate").daterangepicker({
     singleDatePicker: true,
     locale: {
@@ -149,21 +187,30 @@ $(function () {
 });
 
 //Allow only numbers in input field
-$.fn.allowOnlyNumbers = function() {
-  return this.on('keydown', function(e) {
-  // Allow: backspace, delete, tab, escape, enter, ., ctrl/cmd+A, ctrl/cmd+C, ctrl/cmd+X, ctrl/cmd+V, end, home, left, right, down, up
-    if ($.inArray(e.keyCode, [46, 8, 9, 27, 13, 110, 190]) !== -1 || 
-      (e.keyCode >= 35 && e.keyCode <= 40) || 
-      ((e.keyCode === 65 || e.keyCode === 67 || e.keyCode === 86 || e.keyCode === 88) && (e.ctrlKey === true || e.metaKey === true))) {
+$.fn.allowOnlyNumbers = function () {
+  return this.on("keydown", function (e) {
+    // Allow: backspace, delete, tab, escape, enter, ., ctrl/cmd+A, ctrl/cmd+C, ctrl/cmd+X, ctrl/cmd+V, end, home, left, right, down, up
+    if (
+      $.inArray(e.keyCode, [46, 8, 9, 27, 13, 110, 190]) !== -1 ||
+      (e.keyCode >= 35 && e.keyCode <= 40) ||
+      ((e.keyCode === 65 ||
+        e.keyCode === 67 ||
+        e.keyCode === 86 ||
+        e.keyCode === 88) &&
+        (e.ctrlKey === true || e.metaKey === true))
+    ) {
       return;
-  }
-  // Ensure that it is a number and stop the keypress
-  if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
-    e.preventDefault();
-  }
-});
+    }
+    // Ensure that it is a number and stop the keypress
+    if (
+      (e.shiftKey || e.keyCode < 48 || e.keyCode > 57) &&
+      (e.keyCode < 96 || e.keyCode > 105)
+    ) {
+      e.preventDefault();
+    }
+  });
 };
-$('.number-input').allowOnlyNumbers();
+$(".number-input").allowOnlyNumbers();
 
 //Serialize Object
 $.fn.serializeObject = function () {
@@ -209,7 +256,7 @@ if (auth == undefined) {
   });
 
   $.get(api + "settings/get", function (data) {
-    settings = data.settings;
+    settings = data && data.settings ? data.settings : data;
   });
 
   $.get(api + "users/all", function (users) {
@@ -218,7 +265,9 @@ if (auth == undefined) {
 
   $(document).ready(function () {
     //update title based on company
-    let appTitle = !!settings ? `${validator.unescape(settings.store)} - ${appName}` : appName;
+    let appTitle = !!settings
+      ? `${validator.unescape(settings.store)} - ${appName}`
+      : appName;
     $("title").text(appTitle);
 
     $(".loading").hide();
@@ -228,7 +277,9 @@ if (auth == undefined) {
     loadCustomers();
 
     if (settings && validator.unescape(settings.symbol)) {
-      $("#price_curr, #payment_curr, #change_curr").text(validator.unescape(settings.symbol));
+      $("#price_curr, #payment_curr, #change_curr").text(
+        validator.unescape(settings.symbol),
+      );
     }
 
     setTimeout(function () {
@@ -295,16 +346,14 @@ if (auth == undefined) {
         });
 
         //Show notification if there are any expired goods.
-        if(expiredCount>0)
-        {
-           notiflix.Notify.failure(
-          `${expiredCount} ${
-            expiredCount > 0 ? "products" : "product"
-          } expired. Please restock!`,
-        );
+        if (expiredCount > 0) {
+          notiflix.Notify.failure(
+            `${expiredCount} ${
+              expiredCount > 0 ? "products" : "product"
+            } expired. Please restock!`,
+          );
         }
 
-       
         $("#parent").text("");
 
         data.forEach((item) => {
@@ -312,17 +361,13 @@ if (auth == undefined) {
             categories.push(item.category);
           }
           let item_isExpired = isExpired(item.expirationDate);
-          let item_stockStatus = getStockStatus(item.quantity,item.minStock);
-          if(item.img==="")
-          {
+          let item_stockStatus = getStockStatus(item.quantity, item.minStock);
+          if (item.img === "") {
             item_img = default_item_img;
-          }
-          else
-          {
+          } else {
             item_img = path.join(img_path, item.img);
             item_img = checkFileExists(item_img) ? item_img : default_item_img;
           }
-          
 
           let item_info = `<div class="col-lg-2 box ${item.category}"
                                 onclick="$(this).addToCart(${item._id}, ${
@@ -337,7 +382,7 @@ if (auth == undefined) {
                                         <span class="sku">${
                                           item.barcode || item._id
                                         }</span>
-                                        <span class="${item_stockStatus<1?'text-danger':''}"><span class="stock">STOCK </span><span class="count">${
+                                        <span class="${item_stockStatus < 1 ? "text-danger" : ""}"><span class="stock">STOCK </span><span class="count">${
                                           item.stock == 1
                                             ? item.quantity
                                             : "N/A"
@@ -373,18 +418,186 @@ if (auth == undefined) {
         );
 
         customers.forEach((cust) => {
+          const customerValue = {
+            id: cust._id,
+            name: cust.name,
+            phone: cust.phone || "",
+            email: cust.email || "",
+            address: cust.address || "",
+            diagnosis: cust.diagnosis || "",
+            feeling: cust.feeling || "",
+            medicine_given: cust.medicine_given || "",
+            consultation_done: !!cust.consultation_done,
+            consultation_fee: cust.consultation_fee || 0,
+          };
+
           $("#customer").append(
             $("<option>", {
-              value: JSON.stringify({
-                id: cust._id,
-                name: cust.name,
-              }),
+              value: JSON.stringify(customerValue),
               text: cust.name,
             }),
           );
         });
       });
     }
+
+    function loadPatientList() {
+      let patient_list = "";
+      let counter = 0;
+
+      allPatients = [];
+      $("#patient_list").empty();
+
+      if ($.fn.DataTable.isDataTable("#patientList")) {
+        $("#patientList").DataTable().destroy();
+      }
+
+      $.get(api + "customers/all", function (patients) {
+        allPatients = [...patients];
+
+        patients.forEach((patient, patientIndex) => {
+          counter++;
+          patient_list += `<tr>
+            <td>${DOMPurify.sanitize(patient.name || "")}</td>
+            <td>${DOMPurify.sanitize(patient.phone || "")}</td>
+            <td>${DOMPurify.sanitize(patient.email || "")}</td>
+            <td>${DOMPurify.sanitize(patient.address || "")}</td>
+            <td>${DOMPurify.sanitize(patient.diagnosis || "")}</td>
+            <td>${DOMPurify.sanitize(patient.feeling || "")}</td>
+            <td>${DOMPurify.sanitize(patient.medicine_given || "")}</td>
+            <td>${patient.consultation_done ? "Consultation done" : "Medicine only"}</td>
+            <td class="patient-actions">
+              <div class="patient-action-group">
+                <button onClick="$(this).dispensePatient(${patientIndex})" class="btn btn-info btn-sm patient-action-btn">Dispense</button>
+                ${
+                  patient.consultation_done &&
+                  parseFloat(patient.consultation_fee || 0) > 0
+                    ? `<button onClick="$(this).addConsultationFee(${patientIndex})" class="btn btn-success btn-sm patient-action-btn">Add Consultation Fee</button>`
+                    : ""
+                }
+                <button onClick="$(this).editPatientRow(${patientIndex})" class="btn btn-warning btn-sm patient-action-btn patient-action-icon"><i class="fa fa-edit"></i></button>
+                <button onClick="$(this).deletePatient('${patient._id}')" class="btn btn-danger btn-sm patient-action-btn patient-action-icon"><i class="fa fa-trash"></i></button>
+              </div>
+            </td>
+          </tr>`;
+
+          if (counter == patients.length) {
+            $("#patient_list").html(patient_list);
+
+            $("#patientList").DataTable({
+              order: [[0, "asc"]],
+              autoWidth: false,
+              info: true,
+              JQueryUI: true,
+              ordering: true,
+              paging: false,
+            });
+          }
+        });
+      });
+    }
+
+    $.fn.patientCustomerValue = function (patient) {
+      return JSON.stringify({
+        id: patient._id,
+        name: patient.name || "",
+        phone: patient.phone || "",
+        email: patient.email || "",
+        address: patient.address || "",
+        diagnosis: patient.diagnosis || "",
+        feeling: patient.feeling || "",
+        medicine_given: patient.medicine_given || "",
+        consultation_done: !!patient.consultation_done,
+        consultation_fee: patient.consultation_fee || 0,
+      });
+    };
+
+    $.fn.setSelectedCustomer = function (patient) {
+      $("#customer")
+        .val($(this).patientCustomerValue(patient))
+        .trigger("chosen:updated");
+    };
+
+    $.fn.dispensePatient = function (index) {
+      const patient = allPatients[index];
+      if (!patient) {
+        return;
+      }
+
+      clearConsultationCharge();
+      $(this).setSelectedCustomer(patient);
+      $(this).renderTable(cart);
+      $("#Patients").modal("hide");
+      $("#pointofsale").trigger("click");
+    };
+
+    $.fn.addConsultationFee = function (index) {
+      const patient = allPatients[index];
+      if (!patient) {
+        return;
+      }
+
+      consultationPatient = patient;
+      consultationCharge = parseFloat(patient.consultation_fee || 0);
+      $(this).setSelectedCustomer(patient);
+      $(this).renderTable(cart);
+      $("#Patients").modal("hide");
+      $("#pointofsale").trigger("click");
+      notiflix.Report.info(
+        "Consultation fee added",
+        `Consultation fee set for ${patient.name || "this patient"}. Proceed to payment to record it.`,
+        "Ok",
+      );
+    };
+
+    $.fn.editPatientRow = function (index) {
+      const patient = allPatients[index];
+      if (!patient) {
+        return;
+      }
+
+      $("#customer_id").val(patient._id);
+      $("#userName").val(patient.name || "");
+      $("#phoneNumber").val(patient.phone || "");
+      $("#emailAddress").val(patient.email || "");
+      $("#userAddress").val(patient.address || "");
+      $("#diagnosis").val(patient.diagnosis || "");
+      $("#feeling").val(patient.feeling || "");
+      $("#medicine_given").val(patient.medicine_given || "");
+      $("#consultation_done").prop("checked", !!patient.consultation_done);
+      $("#consultation_fee").val(patient.consultation_fee || "");
+      $("#customerModalTitle").text("Edit Patient");
+      $("#saveCustomerBtn").val("Update Patient");
+      $("#Patients").modal("hide");
+      $("#newCustomer").modal("show");
+    };
+
+    $.fn.deletePatient = function (id) {
+      diagOptions = {
+        title: "Are you sure?",
+        text: "You are about to delete this patient record. This cannot be undone.",
+        okButtonText: "Yes, delete!",
+        cancelButtonText: "Cancel",
+      };
+
+      notiflix.Confirm.show(
+        diagOptions.title,
+        diagOptions.text,
+        diagOptions.okButtonText,
+        diagOptions.cancelButtonText,
+        () => {
+          $.ajax({
+            url: api + "customers/customer/" + id,
+            type: "DELETE",
+            success: function (result) {
+              loadPatientList();
+              loadCustomers();
+              notiflix.Report.success("Done!", "Patient record deleted", "Ok");
+            },
+          });
+        },
+      );
+    };
 
     $.fn.addToCart = function (id, count, stock) {
       $.get(api + "inventory/product/" + id, function (product) {
@@ -539,8 +752,13 @@ if (auth == undefined) {
         total_items += parseInt(data.quantity);
       });
       $("#total").text(total_items);
-      total = total - $("#inputDiscount").val();
-      $("#price").text(validator.unescape(settings.symbol) + moneyFormat(total.toFixed(2)));
+      const discount = parseFloat($("#inputDiscount").val() || 0);
+      const consultation = parseFloat(consultationCharge || 0);
+
+      total = total - discount;
+      $("#price").text(
+        validator.unescape(settings.symbol) + moneyFormat(total.toFixed(2)),
+      );
 
       subTotal = total;
 
@@ -550,16 +768,27 @@ if (auth == undefined) {
 
       if (settings.charge_tax) {
         totalVat = (total * vat) / 100;
-        grossTotal = total + totalVat;
+        grossTotal = total + totalVat + consultation;
       } else {
-        grossTotal = total;
+        grossTotal = total + consultation;
       }
 
       orderTotal = grossTotal.toFixed(2);
 
-      $("#gross_price").text(validator.unescape(settings.symbol) + moneyFormat(orderTotal));
+      $("#gross_price").text(
+        validator.unescape(settings.symbol) + moneyFormat(orderTotal),
+      );
       $("#payablePrice").val(moneyFormat(grossTotal));
     };
+
+    function consultationFeeValue() {
+      return parseFloat(consultationCharge || 0);
+    }
+
+    function clearConsultationCharge() {
+      consultationCharge = 0;
+      consultationPatient = null;
+    }
 
     $.fn.renderTable = function (cartList) {
       $("#cartTable .card-body").empty();
@@ -674,6 +903,7 @@ if (auth == undefined) {
           diagOptions.cancelButtonText,
           () => {
             cart = [];
+            clearConsultationCharge();
             $(this).renderTable(cart);
             holdOrder = 0;
             notiflix.Report.success(
@@ -689,7 +919,7 @@ if (auth == undefined) {
     };
 
     $("#payButton").on("click", function () {
-      if (cart.length != 0) {
+      if (cart.length != 0 || consultationFeeValue() > 0) {
         if (settings && settings.quick_billing) {
           const payableAmount = $("#payablePrice").val().replace(/,/g, "");
           $("#payment").val(payableAmount);
@@ -719,14 +949,21 @@ if (auth == undefined) {
     $.fn.submitDueOrder = function (status) {
       let items = "";
       let payment = 0;
-      paymentType = $('.list-group-item.active').data('payment-type');
+      paymentType = $(".list-group-item.active").data("payment-type");
       cart.forEach((item) => {
-    items += `<tr><td>${DOMPurify.sanitize(item.product_name)}</td><td>${
-      DOMPurify.sanitize(item.quantity)
-    } </td><td class="text-right"> ${DOMPurify.sanitize(validator.unescape(settings.symbol))} ${moneyFormat(
-      DOMPurify.sanitize(Math.abs(item.price).toFixed(2)),
-    )} </td></tr>`;
-});
+        items += `<tr><td>${DOMPurify.sanitize(item.product_name)}</td><td>${DOMPurify.sanitize(
+          item.quantity,
+        )} </td><td class="text-right"> ${DOMPurify.sanitize(validator.unescape(settings.symbol))} ${moneyFormat(
+          DOMPurify.sanitize(Math.abs(item.price).toFixed(2)),
+        )} </td></tr>`;
+      });
+
+      const consultation = consultationFeeValue();
+      if (consultation > 0) {
+        items += `<tr><td>Consultation Fee${consultationPatient && consultationPatient.name ? ` - ${DOMPurify.sanitize(consultationPatient.name)}` : ""}</td><td>1</td><td class="text-right">${validator.unescape(settings.symbol)} ${moneyFormat(
+          consultation.toFixed(2),
+        )}</td></tr>`;
+      }
 
       let currentTime = new Date(moment());
       let discount = $("#inputDiscount").val();
@@ -748,6 +985,9 @@ if (auth == undefined) {
           break;
         case 3:
           type = "Card";
+          break;
+        case 4:
+          type = "Mpesa";
           break;
       }
 
@@ -784,6 +1024,15 @@ if (auth == undefined) {
       }
 
       if (status == 0) {
+        if (cart.length == 0 && consultation <= 0) {
+          notiflix.Report.warning(
+            "Nothing to charge",
+            "Add medicine to the cart or select a patient with a consultation fee.",
+            "Ok",
+          );
+          return;
+        }
+
         if ($("#customer").val() == 0 && $("#refNumber").val() == "") {
           notiflix.Report.warning(
             "Reference Required!",
@@ -817,7 +1066,9 @@ if (auth == undefined) {
             ${validator.unescape(settings.address_one)} <br>
             ${validator.unescape(settings.address_two)} <br>
             ${
-              validator.unescape(settings.contact) != "" ? "Tel: " + validator.unescape(settings.contact) + "<br>" : ""
+              validator.unescape(settings.contact) != ""
+                ? "Tel: " + validator.unescape(settings.contact) + "<br>"
+                : ""
             } 
             ${validator.unescape(settings.tax) != "" ? "Vat No: " + validator.unescape(settings.tax) + "<br>" : ""} 
         </p>
@@ -885,7 +1136,7 @@ if (auth == undefined) {
             </div>`;
 
       if (status == 3) {
-        if (cart.length > 0) {
+        if (cart.length > 0 || consultation > 0) {
           printJS({ printable: receipt, type: "raw-html" });
 
           $(".loading").hide();
@@ -909,6 +1160,7 @@ if (auth == undefined) {
         date: currentTime,
         payment_type: type,
         payment_info: $("#paymentInfo").val(),
+        consultation_fee: consultation,
         total: orderTotal,
         paid: paid,
         change: change,
@@ -928,7 +1180,10 @@ if (auth == undefined) {
         processData: false,
         success: function (data) {
           cart = [];
-          receipt = DOMPurify.sanitize(receipt,{ ALLOW_UNKNOWN_PROTOCOLS: true });
+          clearConsultationCharge();
+          receipt = DOMPurify.sanitize(receipt, {
+            ALLOW_UNKNOWN_PROTOCOLS: true,
+          });
           $("#viewTransaction").html("");
           $("#viewTransaction").html(receipt);
           $("#orderModal").modal("show");
@@ -1219,6 +1474,15 @@ if (auth == undefined) {
       $("#saveCustomerBtn").val("Save Customer");
     });
 
+    $("#newPatientModal").on("click", function () {
+      $("#saveCustomer").get(0).reset();
+      $("#customer_id").val("");
+      $("#customerModalTitle").text("New Patient");
+      $("#saveCustomerBtn").val("Save Patient");
+      $("#Patients").modal("hide");
+      $("#newCustomer").modal("show");
+    });
+
     $("#editCustomerModal").on("click", function () {
       const selectedCustomer = getSelectedCustomerData();
 
@@ -1231,25 +1495,33 @@ if (auth == undefined) {
         return;
       }
 
-      $.get(api + "customers/customer/" + selectedCustomer.id, function (customer) {
-        if (!customer) {
-          notiflix.Report.warning(
-            "Not found",
-            "Could not load selected customer details.",
-            "Ok",
-          );
-          return;
-        }
+      $.get(
+        api + "customers/customer/" + selectedCustomer.id,
+        function (customer) {
+          if (!customer) {
+            notiflix.Report.warning(
+              "Not found",
+              "Could not load selected customer details.",
+              "Ok",
+            );
+            return;
+          }
 
-        $("#customer_id").val(customer._id);
-        $("#userName").val(customer.name || "");
-        $("#phoneNumber").val(customer.phone || "");
-        $("#emailAddress").val(customer.email || "");
-        $("#userAddress").val(customer.address || "");
-        $("#customerModalTitle").text("Edit Customer");
-        $("#saveCustomerBtn").val("Update Customer");
-        $("#newCustomer").modal("show");
-      });
+          $("#customer_id").val(customer._id);
+          $("#userName").val(customer.name || "");
+          $("#phoneNumber").val(customer.phone || "");
+          $("#emailAddress").val(customer.email || "");
+          $("#userAddress").val(customer.address || "");
+          $("#diagnosis").val(customer.diagnosis || "");
+          $("#feeling").val(customer.feeling || "");
+          $("#medicine_given").val(customer.medicine_given || "");
+          $("#consultation_done").prop("checked", !!customer.consultation_done);
+          $("#consultation_fee").val(customer.consultation_fee || "");
+          $("#customerModalTitle").text("Edit Customer");
+          $("#saveCustomerBtn").val("Update Customer");
+          $("#newCustomer").modal("show");
+        },
+      );
     });
 
     $("#saveCustomer").on("submit", function (e) {
@@ -1257,15 +1529,26 @@ if (auth == undefined) {
 
       const customerId = $("#customer_id").val();
       let custData = {
-        _id: customerId != "" ? parseInt(customerId) : Math.floor(Date.now() / 1000),
+        _id:
+          customerId != ""
+            ? parseInt(customerId)
+            : Math.floor(Date.now() / 1000),
         name: $("#userName").val(),
         phone: $("#phoneNumber").val(),
         email: $("#emailAddress").val(),
         address: $("#userAddress").val(),
+        diagnosis: $("#diagnosis").val(),
+        feeling: $("#feeling").val(),
+        medicine_given: $("#medicine_given").val(),
+        consultation_done: $("#consultation_done").is(":checked"),
+        consultation_fee: $("#consultation_fee").val(),
       };
 
       const requestType = customerId != "" ? "PUT" : "POST";
-      const successMessage = customerId != "" ? "Customer updated successfully!" : "Customer added successfully!";
+      const successMessage =
+        customerId != ""
+          ? "Customer updated successfully!"
+          : "Customer added successfully!";
 
       $.ajax({
         url: api + "customers/customer",
@@ -1276,11 +1559,7 @@ if (auth == undefined) {
         processData: false,
         success: function (data) {
           $("#newCustomer").modal("hide");
-          notiflix.Report.success(
-            "Success",
-            successMessage,
-            "Ok",
-          );
+          notiflix.Report.success("Success", successMessage, "Ok");
           loadCustomers();
 
           setTimeout(function () {
@@ -1289,6 +1568,14 @@ if (auth == undefined) {
                 JSON.stringify({
                   id: custData._id,
                   name: custData.name,
+                  phone: custData.phone || "",
+                  email: custData.email || "",
+                  address: custData.address || "",
+                  diagnosis: custData.diagnosis || "",
+                  feeling: custData.feeling || "",
+                  medicine_given: custData.medicine_given || "",
+                  consultation_done: !!custData.consultation_done,
+                  consultation_fee: custData.consultation_fee || 0,
                 }),
               )
               .trigger("chosen:updated");
@@ -1383,22 +1670,21 @@ if (auth == undefined) {
             diagOptions.text,
             diagOptions.okButtonText,
             diagOptions.cancelButtonText,
-            ()=>{},
+            () => {},
             () => {
               $("#newProduct").modal("hide");
             },
           );
         },
         //error for product
-       error: function (jqXHR,textStatus, errorThrown) {
-      console.error(jqXHR.responseJSON.message);
-      notiflix.Report.failure(
-        jqXHR.responseJSON.error,
-        jqXHR.responseJSON.message,
-        "Ok",
-      );
-      }
-
+        error: function (jqXHR, textStatus, errorThrown) {
+          console.error(jqXHR.responseJSON.message);
+          notiflix.Report.failure(
+            jqXHR.responseJSON.error,
+            jqXHR.responseJSON.message,
+            "Ok",
+          );
+        },
       });
     });
 
@@ -1431,10 +1717,10 @@ if (auth == undefined) {
             diagOptions.text,
             diagOptions.okButtonText,
             diagOptions.cancelButtonText,
-            ()=>{},
+            () => {},
 
             () => {
-                $("#newCategory").modal("hide");
+              $("#newCategory").modal("hide");
             },
           );
         },
@@ -1490,7 +1776,6 @@ if (auth == undefined) {
       $("#fullname").val(allUsers[index].fullname);
       $("#username").val(validator.unescape(allUsers[index].username));
       $("#password").attr("placeholder", "New Password");
-    
 
       for (perm of permissions) {
         var el = "#" + perm;
@@ -1596,6 +1881,34 @@ if (auth == undefined) {
       loadUserList();
     });
 
+    $("#patientsModal").on("click", function () {
+      loadPatientList();
+    });
+
+    $("#reportsModal").on("click", function () {
+      loadStockReport();
+      loadPatientReport();
+      loadSalesReport(reportStart.toDate(), reportEnd.toDate());
+    });
+
+    $("#reportSalesRange").on("apply.daterangepicker", function (ev, picker) {
+      reportStart = picker.startDate;
+      reportEnd = picker.endDate;
+      loadSalesReport(reportStart.toDate(), reportEnd.toDate());
+    });
+
+    $("#printSalesReport").on("click", function () {
+      printReportSection("salesReportBody", "Sales Report");
+    });
+
+    $("#printStockReport").on("click", function () {
+      printReportSection("stockReportBody", "Stock & Expiry Report");
+    });
+
+    $("#printPatientReport").on("click", function () {
+      printReportSection("patientReportBody", "Patient / Dispensing Report");
+    });
+
     $("#categoryModal").on("click", function () {
       loadCategoryList();
     });
@@ -1681,9 +1994,8 @@ if (auth == undefined) {
         const expiryDate = moment(product.expirationDate, DATE_FORMAT);
 
         //show stock status indicator
-        const stockStatus = getStockStatus(product.quantity,product.minStock);
-          if(stockStatus<=0)
-          {
+        const stockStatus = getStockStatus(product.quantity, product.minStock);
+        if (stockStatus <= 0) {
           if (stockStatus === 0) {
             product.stockStatus = "No Stock";
             icon = "fa fa-exclamation-triangle";
@@ -1712,18 +2024,15 @@ if (auth == undefined) {
           product.expiryAlert = `<p class="text-danger"><small><i class="${icon}"></i> ${product.expiryStatus}</small></p>`;
         }
 
-        if(product.img==="")
-        {
-          product_img=default_item_img;
-        }
-        else
-        {
+        if (product.img === "") {
+          product_img = default_item_img;
+        } else {
           product_img = img_path + product.img;
           product_img = checkFileExists(product_img)
-          ? product_img
-          : default_item_img;
+            ? product_img
+            : default_item_img;
         }
-        
+
         //render product list
         product_list +=
           `<tr>
@@ -1804,7 +2113,6 @@ if (auth == undefined) {
       }
     }
 
-
     $("#log-out").on("click", function () {
       const diagOptions = {
         title: "Are you sure?",
@@ -1839,24 +2147,28 @@ if (auth == undefined) {
         mac_address = mac;
       });
       const appChoice = $("#app").find("option:selected").text();
-    
+
       formData["app"] = appChoice;
       formData["mac"] = mac_address;
       formData["till"] = 1;
 
       // Update application field in settings form
       let $appField = $("#settings_form input[name='app']");
-      let $hiddenAppField = $('<input>', {
-        type: 'hidden',
-        name: 'app',
-        value: formData.app
-    });
-        $appField.length 
-            ? $appField.val(formData.app) 
-            : $("#settings_form").append(`<input type="hidden" name="app" value="${$hiddenAppField}" />`);
+      let $hiddenAppField = $("<input>", {
+        type: "hidden",
+        name: "app",
+        value: formData.app,
+      });
+      $appField.length
+        ? $appField.val(formData.app)
+        : $("#settings_form").append(
+            `<input type="hidden" name="app" value="${$hiddenAppField}" />`,
+          );
 
-
-      if (formData.percentage != "" && typeof formData.percentage === 'number') {
+      if (
+        formData.percentage != "" &&
+        typeof formData.percentage === "number"
+      ) {
         notiflix.Report.warning(
           "Oops!",
           "Please make sure the tax value is a number",
@@ -1880,10 +2192,10 @@ if (auth == undefined) {
               jqXHR.responseJSON.message,
               "Ok",
             );
+          },
+        });
       }
     });
-    }
-  });
 
     $("#net_settings_form").on("submit", function (e) {
       e.preventDefault();
@@ -1942,7 +2254,7 @@ if (auth == undefined) {
               notiflix.Report.success("Great!", "User details saved!", "Ok");
             }
           },
-          error: function (jqXHR,textStatus, errorThrown) {
+          error: function (jqXHR, textStatus, errorThrown) {
             notiflix.Report.failure(
               jqXHR.responseJSON.error,
               jqXHR.responseJSON.message,
@@ -2058,7 +2370,7 @@ if (auth == undefined) {
           .prop("selected", true);
       }
     });
- });
+  });
 
   $("#rmv_logo").on("click", function () {
     $("#remove_logo").val("1");
@@ -2087,6 +2399,7 @@ function loadTransactions() {
   let sales = 0;
   let transact = 0;
   let unique = 0;
+  let dailySales = {};
 
   sold_items = [];
   sold = [];
@@ -2105,6 +2418,10 @@ function loadTransactions() {
       transactions.forEach((trans, index) => {
         sales += parseFloat(trans.total);
         transact++;
+
+        const dayKey = moment(trans.date).format("YYYY-MM-DD");
+        dailySales[dayKey] =
+          (dailySales[dayKey] || 0) + parseFloat(trans.total || 0);
 
         trans.items.forEach((item) => {
           sold_items.push(item);
@@ -2125,12 +2442,14 @@ function loadTransactions() {
                                   "DD-MMM-YYYY HH:mm:ss",
                                 )}</td>
                                 <td>${
-                                  validator.unescape(settings.symbol) + moneyFormat(trans.total)
+                                  validator.unescape(settings.symbol) +
+                                  moneyFormat(trans.total)
                                 }</td>
                                 <td>${
                                   trans.paid == ""
                                     ? ""
-                                    : validator.unescape(settings.symbol) + moneyFormat(trans.paid)
+                                    : validator.unescape(settings.symbol) +
+                                      moneyFormat(trans.paid)
                                 }</td>
                                 <td>${
                                   trans.change
@@ -2141,9 +2460,7 @@ function loadTransactions() {
                                     : ""
                                 }</td>
                                 <td>${
-                                  trans.paid == ""
-                                    ? ""
-                                    : trans.payment_type
+                                  trans.paid == "" ? "" : trans.payment_type
                                 }</td>
                                 <td>${trans.till}</td>
                                 <td>${trans.user}</td>
@@ -2158,7 +2475,8 @@ function loadTransactions() {
 
         if (counter == transactions.length) {
           $("#total_sales #counter").text(
-            validator.unescape(settings.symbol) + moneyFormat(parseFloat(sales).toFixed(2)),
+            validator.unescape(settings.symbol) +
+              moneyFormat(parseFloat(sales).toFixed(2)),
           );
           $("#total_transactions #counter").text(transact);
 
@@ -2190,6 +2508,7 @@ function loadTransactions() {
           }
 
           loadSoldProducts();
+          renderSalesChart(dailySales);
 
           if (by_user == 0 && by_till == 0) {
             userFilter(users);
@@ -2217,6 +2536,49 @@ function loadTransactions() {
       );
     }
   });
+}
+
+function renderSalesChart(dailySales) {
+  const $chart = $("#salesChart");
+  if (!$chart.length) {
+    return;
+  }
+
+  const entries = Object.keys(dailySales)
+    .sort()
+    .map((date) => ({ date, total: dailySales[date] }));
+
+  if (entries.length === 0) {
+    $chart.html(
+      '<div class="text-muted">No sales data for the selected range.</div>',
+    );
+    return;
+  }
+
+  const maxTotal = Math.max(...entries.map((entry) => entry.total));
+  const chartBars = entries
+    .map((entry) => {
+      const height =
+        maxTotal > 0 ? Math.max((entry.total / maxTotal) * 100, 6) : 6;
+      return `<div style="flex: 1; min-width: 72px; text-align: center;">
+        <div style="height: 180px; display: flex; align-items: flex-end; justify-content: center; padding: 0 6px;">
+          <div title="${entry.date}: ${validator.unescape(settings.symbol)}${moneyFormat(
+            parseFloat(entry.total).toFixed(2),
+          )}" style="width: 100%; max-width: 48px; height: ${height}%; background: linear-gradient(180deg, #28a745, #1e7e34); border-radius: 8px 8px 0 0;"></div>
+        </div>
+        <div style="font-size: 11px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${moment(
+          entry.date,
+        ).format("DD MMM")}</div>
+        <div style="font-size: 12px; font-weight: 600;">${validator.unescape(settings.symbol)}${moneyFormat(
+          parseFloat(entry.total).toFixed(2),
+        )}</div>
+      </div>`;
+    })
+    .join("");
+
+  $chart.html(
+    `<div style="display: flex; gap: 12px; align-items: flex-end; overflow-x: auto; padding-bottom: 8px;">${chartBars}</div>`,
+  );
 }
 
 function sortDesc(a, b) {
@@ -2293,6 +2655,284 @@ function tillFilter(tills) {
   });
 }
 
+/**
+ * Build the Sales report for the selected date range: totals, revenue by
+ * payment method (Cash/Card/Mpesa) and the top selling products.
+ *
+ * @param {Date} startDate - start of the report period.
+ * @param {Date} endDate - end of the report period.
+ * @returns {void}
+ */
+function loadSalesReport(startDate, endDate) {
+  $("#salesReportBody").html('<p>Please wait <span class="dot"></span></p>');
+
+  $.get(
+    api +
+      `by-date?start=${startDate.toISOString()}&end=${endDate.toISOString()}&user=0&status=1&till=0`,
+    function (transactions) {
+      const symbol = settings && settings.symbol ? validator.unescape(settings.symbol) : "";
+
+      if (!transactions || transactions.length === 0) {
+        $("#salesReportBody").html(
+          '<div class="alert alert-warning">No paid transactions in this period.</div>',
+        );
+        return;
+      }
+
+      let totalSales = 0;
+      let totalItems = 0;
+      const paymentTotals = {};
+      const productTotals = {};
+
+      transactions.forEach((trans) => {
+        totalSales += parseFloat(trans.total || 0);
+        const method = trans.payment_type || "Unknown";
+        paymentTotals[method] =
+          (paymentTotals[method] || 0) + parseFloat(trans.total || 0);
+
+        (trans.items || []).forEach((item) => {
+          const qty = parseFloat(item.quantity) || 0;
+          const linePrice = parseFloat(item.price) || 0;
+          totalItems += qty;
+
+          if (!productTotals[item.product_name]) {
+            productTotals[item.product_name] = { qty: 0, total: 0 };
+          }
+          productTotals[item.product_name].qty += qty;
+          productTotals[item.product_name].total += qty * linePrice;
+        });
+      });
+
+      const topProducts = Object.keys(productTotals)
+        .map((name) => ({ name, ...productTotals[name] }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10);
+
+      const paymentRows =
+        Object.keys(paymentTotals)
+          .map(
+            (method) =>
+              `<tr><td>${DOMPurify.sanitize(method)}</td><td>${symbol}${moneyFormat(paymentTotals[method].toFixed(2))}</td></tr>`,
+          )
+          .join("") || '<tr><td colspan="2">No data.</td></tr>';
+
+      const productRows =
+        topProducts
+          .map(
+            (p) =>
+              `<tr><td>${DOMPurify.sanitize(p.name || "Unknown")}</td><td>${p.qty}</td><td>${symbol}${moneyFormat(p.total.toFixed(2))}</td></tr>`,
+          )
+          .join("") || '<tr><td colspan="3">No data.</td></tr>';
+
+      $("#salesReportBody").html(`
+        <div class="row text-center m-b-20">
+          <div class="col-md-4 py-2 bg-success"><h5>TOTAL SALES</h5><span>${symbol}${moneyFormat(totalSales.toFixed(2))}</span></div>
+          <div class="col-md-4 py-2 bg-warning"><h5>TRANSACTIONS</h5><span>${transactions.length}</span></div>
+          <div class="col-md-4 py-2 bg-info"><h5>ITEMS SOLD</h5><span>${totalItems}</span></div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <h4>Sales by Payment Method</h4>
+            <table class="table table-bordered"><thead><tr><th>Method</th><th>Total</th></tr></thead><tbody>${paymentRows}</tbody></table>
+          </div>
+          <div class="col-md-6">
+            <h4>Top 10 Products by Revenue</h4>
+            <table class="table table-bordered"><thead><tr><th>Product</th><th>Qty Sold</th><th>Revenue</th></tr></thead><tbody>${productRows}</tbody></table>
+          </div>
+        </div>
+      `);
+    },
+  ).fail(function () {
+    $("#salesReportBody").html(
+      '<div class="alert alert-danger">Unable to load the sales report right now.</div>',
+    );
+  });
+}
+
+/**
+ * Build the Stock & Expiry report: out-of-stock and low-stock items (using
+ * the same thresholds as the rest of the app), expired items, items expiring
+ * within 30 days, and the total value of current stock.
+ *
+ * @returns {void}
+ */
+function loadStockReport() {
+  $("#stockReportBody").html('<p>Please wait <span class="dot"></span></p>');
+
+  $.get(api + "inventory/products", function (products) {
+    const symbol = settings && settings.symbol ? validator.unescape(settings.symbol) : "";
+    const tracked = products.filter((p) => p.stock == 1);
+    const outOfStock = tracked.filter(
+      (p) => getStockStatus(p.quantity, p.minStock) === 0,
+    );
+    const lowStock = tracked.filter(
+      (p) => getStockStatus(p.quantity, p.minStock) === -1,
+    );
+    const expired = products.filter((p) => isExpired(p.expirationDate));
+    const expiringSoon = products.filter(
+      (p) =>
+        !isExpired(p.expirationDate) && daysToExpire(p.expirationDate) <= 30,
+    );
+    const stockValue = tracked.reduce(
+      (sum, p) =>
+        sum + (parseFloat(p.quantity) || 0) * (parseFloat(p.price) || 0),
+      0,
+    );
+    const stockRows =
+      [...outOfStock, ...lowStock]
+        .map(
+          (p) =>
+            `<tr><td>${DOMPurify.sanitize(p.name || "")}</td><td>${DOMPurify.sanitize(p.barcode || "")}</td><td>${p.quantity}</td><td>${p.minStock || 0}</td></tr>`,
+        )
+        .join("") ||
+      '<tr><td colspan="4">All stocked items are above minimum levels.</td></tr>';
+
+    const expiryRows =
+      [...expired, ...expiringSoon]
+        .map(
+          (p) =>
+            `<tr><td>${DOMPurify.sanitize(p.name || "")}</td><td>${DOMPurify.sanitize(p.barcode || "")}</td><td>${p.expirationDate}</td><td>${
+              isExpired(p.expirationDate)
+                ? '<span class="text-danger">Expired</span>'
+                : daysToExpire(p.expirationDate) + " day(s) left"
+            }</td></tr>`,
+        )
+        .join("") ||
+      '<tr><td colspan="4">Nothing expired or expiring soon.</td></tr>';
+
+    $("#stockReportBody").html(`
+      <div class="row text-center m-b-20">
+        <div class="col-md-3 py-2 bg-danger"><h5>OUT OF STOCK</h5><span>${outOfStock.length}</span></div>
+        <div class="col-md-3 py-2 bg-warning"><h5>LOW STOCK</h5><span>${lowStock.length}</span></div>
+        <div class="col-md-3 py-2 bg-danger"><h5>EXPIRED</h5><span>${expired.length}</span></div>
+        <div class="col-md-3 py-2 bg-success"><h5>STOCK VALUE</h5><span>${symbol}${moneyFormat(stockValue.toFixed(2))}</span></div>
+      </div>
+      <div class="row">
+        <div class="col-md-6">
+          <h4>Out of Stock / Low Stock</h4>
+          <table class="table table-bordered"><thead><tr><th>Product</th><th>Barcode</th><th>Qty</th><th>Min</th></tr></thead><tbody>${stockRows}</tbody></table>
+        </div>
+        <div class="col-md-6">
+          <h4>Expired / Expiring within 30 days</h4>
+          <table class="table table-bordered"><thead><tr><th>Product</th><th>Barcode</th><th>Expiry Date</th><th>Status</th></tr></thead><tbody>${expiryRows}</tbody></table>
+        </div>
+      </div>
+    `);
+  }).fail(function () {
+    $("#stockReportBody").html(
+      '<div class="alert alert-danger">Unable to load the stock report right now.</div>',
+    );
+  });
+}
+
+/**
+ * Build the Patient / Dispensing report: how many patients are on file, how
+ * many consultations were recorded, and the most common diagnoses and
+ * dispensed medicines.
+ *
+ * @returns {void}
+ */
+function loadPatientReport() {
+  $("#patientReportBody").html('<p>Please wait <span class="dot"></span></p>');
+
+  $.get(api + "customers/all", function (patients) {
+    const totalPatients = patients.length;
+    const consultations = patients.filter((p) => p.consultation_done).length;
+    const diagnosisTotals = {};
+    const medicineTotals = {};
+
+    patients.forEach((p) => {
+      if (p.diagnosis) {
+        diagnosisTotals[p.diagnosis] = (diagnosisTotals[p.diagnosis] || 0) + 1;
+      }
+      if (p.medicine_given) {
+        medicineTotals[p.medicine_given] =
+          (medicineTotals[p.medicine_given] || 0) + 1;
+      }
+    });
+
+    const topList = (obj) =>
+      Object.keys(obj)
+        .map((k) => ({ name: k, count: obj[k] }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+    const diagnosisRows =
+      topList(diagnosisTotals)
+        .map(
+          (d) =>
+            `<tr><td>${DOMPurify.sanitize(d.name)}</td><td>${d.count}</td></tr>`,
+        )
+        .join("") ||
+      '<tr><td colspan="2">No diagnosis data recorded.</td></tr>';
+
+    const medicineRows =
+      topList(medicineTotals)
+        .map(
+          (d) =>
+            `<tr><td>${DOMPurify.sanitize(d.name)}</td><td>${d.count}</td></tr>`,
+        )
+        .join("") ||
+      '<tr><td colspan="2">No dispensing data recorded.</td></tr>';
+
+    $("#patientReportBody").html(`
+      <div class="row text-center m-b-20">
+        <div class="col-md-6 py-2 bg-success"><h5>TOTAL PATIENTS</h5><span>${totalPatients}</span></div>
+        <div class="col-md-6 py-2 bg-info"><h5>CONSULTATIONS DONE</h5><span>${consultations}</span></div>
+      </div>
+      <div class="row">
+        <div class="col-md-6">
+          <h4>Most Common Diagnoses</h4>
+          <table class="table table-bordered"><thead><tr><th>Diagnosis</th><th>Patients</th></tr></thead><tbody>${diagnosisRows}</tbody></table>
+        </div>
+        <div class="col-md-6">
+          <h4>Most Dispensed Medicine</h4>
+          <table class="table table-bordered"><thead><tr><th>Medicine</th><th>Times Given</th></tr></thead><tbody>${medicineRows}</tbody></table>
+        </div>
+      </div>
+    `);
+  });
+}
+
+/**
+ * Open a plain print-friendly window containing the given report section
+ * and trigger the browser/OS print dialog.
+ *
+ * @param {string} elementId - id of the container to print.
+ * @param {string} title - report title shown in the print window.
+ * @returns {void}
+ */
+function printReportSection(elementId, title) {
+  const content = document.getElementById(elementId).innerHTML;
+  const storeName =
+    settings && settings.store
+      ? DOMPurify.sanitize(settings.store)
+      : "PharmaSpot";
+  const printWindow = window.open("", "_blank");
+
+  printWindow.document.write(`
+    <html><head><title>${title}</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+      th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+      h4 { margin-top: 20px; }
+      .row { display: flex; flex-wrap: wrap; gap: 10px; }
+      .col-md-3, .col-md-4, .col-md-6 { flex: 1; min-width: 150px; text-align: center; padding: 10px; }
+      .bg-success { background:#dff0d8; } .bg-warning { background:#fcf8e3; }
+      .bg-info { background:#d9edf7; } .bg-danger { background:#f2dede; }
+    </style>
+    </head><body>
+    <h2>${storeName} - ${title}</h2>
+    <p>Generated: ${moment().format("DD-MMM-YYYY HH:mm")}</p>
+    ${content}
+    </body></html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
 $.fn.viewTransaction = function (index) {
   transaction_index = index;
 
@@ -2320,7 +2960,6 @@ $.fn.viewTransaction = function (index) {
   });
 
   paymentMethod = allTransactions[index].payment_type;
- 
 
   if (allTransactions[index].paid != "") {
     payment = `<tr>
@@ -2331,8 +2970,7 @@ $.fn.viewTransaction = function (index) {
                     )}</td>
                 </tr>
                 <tr>
-                    <td>Change</td>
-                    <td>:</td>
+            }).fail(function () {
                     <td class="text-right">${validator.unescape(settings.symbol)} ${moneyFormat(
                       Math.abs(allTransactions[index].change).toFixed(2),
                     )}</td>
@@ -2354,9 +2992,9 @@ $.fn.viewTransaction = function (index) {
             </tr>`;
   }
 
-    logo = path.join(img_path, validator.unescape(settings.img));
-      
-      receipt = `<div style="font-size: 10px">                            
+  logo = path.join(img_path, validator.unescape(settings.img));
+
+  receipt = `<div style="font-size: 10px">                            
         <p style="text-align: center;">
         ${
           checkFileExists(logo)
@@ -2367,7 +3005,9 @@ $.fn.viewTransaction = function (index) {
             ${validator.unescape(settings.address_one)} <br>
             ${validator.unescape(settings.address_two)} <br>
             ${
-              validator.unescape(settings.contact) != "" ? "Tel: " + validator.unescape(settings.contact) + "<br>" : ""
+              validator.unescape(settings.contact) != ""
+                ? "Tel: " + validator.unescape(settings.contact) + "<br>"
+                : ""
             } 
             ${validator.unescape(settings.tax) != "" ? "Vat No: " + validator.unescape(settings.tax) + "<br>" : ""} 
     </p>
@@ -2442,8 +3082,8 @@ $.fn.viewTransaction = function (index) {
          </p>
         </div>`;
 
-        //prevent DOM XSS; allow windows paths in img src
-        receipt = DOMPurify.sanitize(receipt,{ ALLOW_UNKNOWN_PROTOCOLS: true });
+  //prevent DOM XSS; allow windows paths in img src
+  receipt = DOMPurify.sanitize(receipt, { ALLOW_UNKNOWN_PROTOCOLS: true });
 
   $("#viewTransaction").html("");
   $("#viewTransaction").html(receipt);
@@ -2508,6 +3148,11 @@ $("body").on("submit", "#account", function (e) {
       },
       error: function (data) {
         console.log(data);
+  $.get(api + "customers/all").fail(function () {
+    $("#patientReportBody").html(
+      '<div class="alert alert-danger">Unable to load the patient report right now.</div>',
+    );
+  });
       },
     });
   }
@@ -2519,7 +3164,7 @@ $("#quit").on("click", function () {
     text: "You are about to close the application.",
     icon: "warning",
     okButtonText: "Close Application",
-    cancelButtonText: "Cancel"
+    cancelButtonText: "Cancel",
   };
 
   notiflix.Confirm.show(

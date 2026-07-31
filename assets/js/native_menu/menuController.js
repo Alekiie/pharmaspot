@@ -107,19 +107,18 @@ const handleError = async (err) => {
   try {
     console.error(`Error checking for updates: ${err}`);
     
+    const errString = String(err && err.message ? err.message : err);
     const dialogOpts = {
-      type: "error",
-      title: "Update check failed",
-      message: "An error occurred while checking for updates.",
-      detail: err,
-      buttons: ["Retry", "Cancel"]
+      type: "warning",
+      title: "Offline / Update Check",
+      message: "Unable to check for updates.",
+      detail: errString.includes("net::ERR") || errString.includes("ENOTFOUND") || errString.includes("FETCH_ERROR") 
+        ? "No internet connection detected. The app is running in offline mode." 
+        : errString,
+      buttons: ["OK"]
     };
 
-    const returnValue = await dialog.showMessageBox(dialogOpts);
-
-    if (returnValue.response === 0) {
-      checkForUpdates();
-    }
+    await dialog.showMessageBox(dialogOpts);
   } catch (error) {
     console.error(`Error in handleError function: ${error}`);
   }

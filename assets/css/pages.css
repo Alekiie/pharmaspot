@@ -1,30 +1,37 @@
-
-#transactions_view, #pointofsale {
+#transactions_view,
+#pointofsale {
   display: none;
 }
 
-#card-box tr {display: block; }
-#card-box th, #card-box td:first-child{ width: 10px; }
-#card-box th, #card-box td:nth-child(2){ width: 150px; }
+#card-box tr {
+  display: block;
+}
+#card-box th,
+#card-box td:first-child {
+  width: 10px;
+}
+#card-box th,
+#card-box td:nth-child(2) {
+  width: 150px;
+}
 
-#cartTable .card-body { 
-  display: block; 
+#cartTable .card-body {
+  display: block;
   max-height: calc(100vh - 413px);
   min-height: calc(100vh - 431px);
-  height:calc(100vh - 385px);
+  height: calc(100vh - 385px);
   overflow: auto;
 }
 
-#parent { 
-  display: block; 
+#parent {
+  display: block;
   height: calc(100vh - 215px);
   overflow: auto;
 }
 
-
-.order-box{
-background-color: grey;
-color: #FFFFFF;
+.order-box {
+  background-color: grey;
+  color: #ffffff;
 }
 
 #parent .box {
@@ -42,23 +49,24 @@ color: #FFFFFF;
 }
 
 #reportrange {
-  background: #fff; 
-  cursor: pointer; 
-  padding: 7px 10px; 
-  border: 1px solid #ddd; 
+  background: #fff;
+  cursor: pointer;
+  padding: 7px 10px;
+  border: 1px solid #ddd;
   width: 100%;
   border-radius: 4px;
-
 }
 
-.nobr  { white-space: nowrap;}
+.nobr {
+  white-space: nowrap;
+}
 
 #image {
   height: 80px;
 }
 
 #print_list {
-margin-right: 30px;
+  margin-right: 30px;
 }
 
 #product_name {
@@ -79,22 +87,56 @@ margin-right: 30px;
 #orderModal,
 #settingsModal,
 #dueModal,
-#Users
-{
-display:none;
+#Users {
+  display: none;
 }
 
-#stock{
-  max-width: 30px; 
+#stock {
+  max-width: 30px;
   float: left;
 }
 
 #renderHoldOrders,
-#renderCustomerOrders
-{
-height: 460px;
-overflow-x: hidden;
-overflow-y:scroll
+#renderCustomerOrders {
+  height: 460px;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+#Patients .modal-dialog {
+  width: calc(100vw - 60px);
+  max-width: 1600px;
+}
+
+#patientList .patient-actions {
+  min-width: 280px;
+  white-space: normal;
+}
+
+#patientList .patient-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#patientList .patient-action-btn {
+  border-radius: 999px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 6px 12px;
+}
+
+#patientList .patient-action-icon {
+  min-width: 38px;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#patientList .patient-action-btn:hover,
+#patientList .patient-action-btn:focus {
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.14);
+  transform: translateY(-1px);
 }
 
 .stock {
@@ -109,54 +151,53 @@ overflow-y:scroll
   font-size: 1.6rem !important;
 }
 
-.del, .prt {
+.del,
+.prt {
   margin-right: 4px !important;
 }
 
 .receipt {
-  font-family: 'Share Tech', sans-serif;
+  font-family: "Share Tech", sans-serif;
 }
 
-.print-btn{
+.print-btn {
   padding: 10px;
   border-radius: 2px;
 }
 
-@media  print {
+@media print {
   .receipt {
-      font-family: 'Share Tech', sans-serif;
+    font-family: "Share Tech", sans-serif;
   }
 
-  .print-head{
-      display: none;
+  .print-head {
+    display: none;
   }
-
 }
 
- .chosen-container-single .chosen-single {
-   padding-top: 3px;
-     height: 33px;
-    border-radius: 3px;
-    border: 1px solid #CCCCCC;
+.chosen-container-single .chosen-single {
+  padding-top: 3px;
+  height: 33px;
+  border-radius: 3px;
+  border: 1px solid #cccccc;
 }
 .chosen-container-single .chosen-single span {
-    padding-top: 2px;
+  padding-top: 2px;
 }
 .chosen-container-single .chosen-single div b {
-    margin-top: 2px;
+  margin-top: 2px;
 }
 
 .chosen-container-active .chosen-single,
 .chosen-container-active.chosen-with-drop .chosen-single {
-    border-color: #ccc;
-    border-color: rgba(82, 168, 236, .8);
-    outline: 0;
-    outline: thin dotted \9;
-    -moz-box-shadow: 0 0 8px rgba(82, 168, 236, .6);
-    box-shadow: 0 0 8px rgba(82, 168, 236, .6)
+  border-color: #ccc;
+  border-color: rgba(82, 168, 236, 0.8);
+  outline: 0;
+  outline: thin dotted \9;
+  -moz-box-shadow: 0 0 8px rgba(82, 168, 236, 0.6);
+  box-shadow: 0 0 8px rgba(82, 168, 236, 0.6);
 }
 
- 
 #productList {
   width: 100%;
 }
@@ -182,45 +223,44 @@ overflow-y:scroll
 }
 
 #login {
-/*  background: radial-gradient(circle, rgba(153,153,153,1) 0%, rgba(221,221,221,1)  100%); */
-/*  background-image: url(../../assets/images/logo.svg);*/
-    min-height: 250px;
-    padding: 15px;
-    margin-right: auto;
-    margin-left: auto;
-    padding-left: 15px;
-    padding-right: 15px;
-    z-index: 999;
+  /*  background: radial-gradient(circle, rgba(153,153,153,1) 0%, rgba(221,221,221,1)  100%); */
+  /*  background-image: url(../../assets/images/logo.svg);*/
+  min-height: 250px;
+  padding: 15px;
+  margin-right: auto;
+  margin-left: auto;
+  padding-left: 15px;
+  padding-right: 15px;
+  z-index: 999;
 }
-
-
 
 #quit {
   z-index: 9999;
 }
 
-#rmv_logo, #rmv_img {
+#rmv_logo,
+#rmv_img {
   display: none;
 }
 
-#net_settings_form{
+#net_settings_form {
   display: none;
 }
 
 .login-box {
-    width: 360px;
-    margin: 15% auto;
+  width: 360px;
+  margin: 15% auto;
 }
 
-.login-box img{
+.login-box img {
   max-width: 80%;
-  margin-bottom:15px;
+  margin-bottom: 15px;
   align-items: center;
 }
 .login-page {
-   height: 100vh;
-    min-height: 100%;
-    background:radial-gradient(circle, #81c868 0%, #eee 100%);
+  height: 100vh;
+  min-height: 100%;
+  background: radial-gradient(circle, #81c868 0%, #eee 100%);
 }
 #load {
   /* width: 500px;
@@ -237,24 +277,24 @@ overflow-y:scroll
 
 #productSales {
   height: calc(100vh - 315px);
-/*  border: 1px solid #ddd;*/
+  /*  border: 1px solid #ddd;*/
   border-radius: 5px;
-  overflow:auto;
+  overflow: auto;
 }
 #transactionDetails {
   height: calc(100vh - 315px);
-/*  border: 1px solid #ddd;*/
+  /*  border: 1px solid #ddd;*/
   border-radius: 5px;
-  overflow:auto;
+  overflow: auto;
 }
-#transactionList{
-  width:100%;
+#transactionList {
+  width: 100%;
 }
 
 #total_sales,
 #total_transactions,
 #total_items,
-#total_products {   
+#total_products {
   color: #fff;
   height: 120px;
   border: 1px solid #fff;
@@ -264,24 +304,22 @@ overflow-y:scroll
 #totals h5 {
   text-align: center;
   margin: 10px;
-  color: #fff; 
+  color: #fff;
 }
 
 #counter {
   /*text-align: center !important;
   margin-top: 10px;*/
   font-size: 32px;
-/*  width: 100%;*/
+  /*  width: 100%;*/
 }
 
 .modal-body {
-    max-height: calc(100vh - 143px);
-    overflow: auto; 
-  }
+  max-height: calc(100vh - 143px);
+  overflow: auto;
+}
 
-
-
-  .splash {
+.splash {
   position: fixed;
   top: 0;
   left: 0;
@@ -291,16 +329,20 @@ overflow-y:scroll
   justify-content: center;
   align-items: center;
   background-color: rgba(255, 255, 255, 0.8);
-/*  border-radius: 5%;*/
+  /*  border-radius: 5%;*/
   border: 1px solid #fff;
   opacity: 0;
   animation: fade-in 1s ease-in-out forwards;
-  z-index:9999;
+  z-index: 9999;
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .splash img {
@@ -314,7 +356,7 @@ overflow-y:scroll
 }
 
 .splash h1 {
-/*  color: #fff;*/
+  /*  color: #fff;*/
   font-size: 2em;
   text-align: center;
   margin-top: 100px; /* Adjust distance between image and text */
@@ -330,11 +372,16 @@ overflow-y:scroll
 }
 
 @keyframes fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
-.splash.hidden, .content.shown {
+.splash.hidden,
+.content.shown {
   display: none;
 }
 

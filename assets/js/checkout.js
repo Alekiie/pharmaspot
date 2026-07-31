@@ -89,14 +89,16 @@ $(document).ready(function () {
   var $list = $(".list-group-item").on("click", function () {
     $list.removeClass("active");
     $(this).addClass("active");
-    if (this.id == "check") {
-      $("#cardInfo").show();
-      $("#cardInfo .input-group-addon").text("Check Info");
-    } else if (this.id == "card") {
+    const paymentMethod = $(this).data("payment-method");
+
+    if (paymentMethod == "Cash") {
+      $("#cardInfo").hide();
+    } else if (paymentMethod == "Card") {
       $("#cardInfo").show();
       $("#cardInfo .input-group-addon").text("Card Info");
-    } else if (this.id == "cash") {
-      $("#cardInfo").hide();
+    } else if (paymentMethod == "Mpesa") {
+      $("#cardInfo").show();
+      $("#cardInfo .input-group-addon").text("Mpesa Ref");
     }
   });
 });
